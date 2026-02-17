@@ -1,0 +1,23 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Heading at the top -->
+    <item
+        android:id="@+id/nav_header"
+        android:title="MAIN MENU"
+        android:enabled="false"
+        android:textColor="@android:color/darker_gray" />
+
+    <!-- Real clickable items -->
+    <item
+        android:id="@+id/nav_sos"
+        android:title="SOS"/>
+
+    <item
+        android:id="@+id/nav_contacts"
+        android:title="Emergency Contacts"/>
+
+    <item
+        android:id="@+id/nav_settings"
+        android:title="Settings"/>
+
+</menu>
