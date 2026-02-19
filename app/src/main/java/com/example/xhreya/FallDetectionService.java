@@ -9,7 +9,6 @@ import android.net.Uri;
 import android.os.*;
 import android.widget.Toast;
 
-import androidx.annotation.RequiresPermission;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 
@@ -29,8 +28,8 @@ public class FallDetectionService extends Service implements SensorEventListener
 
     private FusedLocationProviderClient fusedLocationClient;
 
-    // USE COUNTRY CODE
-    private String whatsappNumber = "9779865382699"; // Nepal
+    // Nepal country code
+    private String whatsappNumber = "9779865382699";
 
     @Override
     public void onCreate() {
@@ -40,8 +39,12 @@ public class FallDetectionService extends Service implements SensorEventListener
 
         sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        sensorManager.registerListener(this, accelerometer,
-                SensorManager.SENSOR_DELAY_FASTEST);
+
+        sensorManager.registerListener(
+                this,
+                accelerometer,
+                SensorManager.SENSOR_DELAY_GAME
+        );
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
@@ -49,7 +52,6 @@ public class FallDetectionService extends Service implements SensorEventListener
         startForeground(1, getNotification("Monitoring for falls..."));
     }
 
-    @RequiresPermission(Manifest.permission.VIBRATE)
     @Override
     public void onSensorChanged(SensorEvent event) {
 
@@ -59,7 +61,6 @@ public class FallDetectionService extends Service implements SensorEventListener
 
         double acc = Math.sqrt(x * x + y * y + z * z);
 
-        // FREE FALL
         if (acc < FREE_FALL_THRESHOLD) {
             if (!inFreeFall) {
                 inFreeFall = true;
@@ -67,7 +68,6 @@ public class FallDetectionService extends Service implements SensorEventListener
             }
         }
 
-        // IMPACT
         if (inFreeFall && acc > IMPACT_THRESHOLD) {
             long time = System.currentTimeMillis() - freeFallStart;
             double height = 0.5 * 9.8 * Math.pow(time / 1000.0, 2);
@@ -77,44 +77,44 @@ public class FallDetectionService extends Service implements SensorEventListener
         }
     }
 
-    @RequiresPermission(Manifest.permission.VIBRATE)
     private void handleFall(double height) {
-        if (vibrator != null) vibrator.vibrate(1500);
+
+        if (vibrator != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(VibrationEffect.createOneShot(
+                        1500,
+                        VibrationEffect.DEFAULT_AMPLITUDE
+                ));
+            } else {
+                vibrator.vibrate(1500);
+            }
+        }
+
         sendWhatsAppMessage(height);
     }
 
     private void sendWhatsAppMessage(double height) {
 
         if (ActivityCompat.checkSelfPermission(this,
-                android.Manifest.permission.ACCESS_FINE_LOCATION)
+                Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) return;
 
         fusedLocationClient.getLastLocation().addOnSuccessListener(location -> {
 
             String message = "⚠️ FALL DETECTED ⚠️\n"
-                    + "Estimated height: " + String.format("%.2f", height) + " m";
+                    + "Estimated Height: " + String.format("%.2f", height) + " m";
 
             if (location != null) {
                 message += "\nLocation:\nhttps://maps.google.com/?q="
                         + location.getLatitude() + "," + location.getLongitude();
-            } else {
-                message += "\nLocation not available";
             }
 
-            try {
-                String url = "https://wa.me/" + whatsappNumber +
-                        "?text=" + Uri.encode(message);
+            String url = "https://wa.me/" + whatsappNumber +
+                    "?text=" + Uri.encode(message);
 
-                Intent intent = new Intent(Intent.ACTION_VIEW);
-                intent.setData(Uri.parse(url));
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(intent);
-
-            } catch (Exception e) {
-                Toast.makeText(this,
-                        "WhatsApp not installed",
-                        Toast.LENGTH_LONG).show();
-            }
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
         });
     }
 
@@ -127,7 +127,7 @@ public class FallDetectionService extends Service implements SensorEventListener
     }
 
     private void createChannel() {
-        if (Build.VERSION.SDK_INT >= 26) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                     "fall",
                     "Fall Detection",
